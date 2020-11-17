@@ -35,7 +35,7 @@ setup(
     name="opera_revenue_api_client",
     version=version,
     license="Apache License 2.0",
-    author="Opera Statistics Platform team",
+    author="Opera Statistics Platform",
     author_email="statistics-dev@opera.com",
     description="Client for Opera Revenue API",
     packages=["opera_revenue_api"],
@@ -43,9 +43,5 @@ setup(
     zip_safe=False,
     platforms="any",
     install_requires=install_requirements,
-    entry_points={
-        "console_scripts": [
-            "opera_revenue_api_upload = opera_revenue_api.client:opera_revenue_api_upload",
-        ]
-    },
+    entry_points={"console_scripts": ["opera_revenue_api_upload = opera_revenue_api.client:opera_revenue_api_upload"]},
 )

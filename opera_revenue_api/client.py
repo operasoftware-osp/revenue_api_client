@@ -14,6 +14,7 @@
 
 import argparse
 import logging
+import os
 from enum import Enum
 from json import JSONDecodeError
 from time import sleep
@@ -53,6 +54,9 @@ class OperaRevenueApiClient:
     Opera Revenue API client.
     Can be used to upload revenue data in CSV format and ensures that upload was completed.
     """
+
+    MAX_FILE_SIZE = 30 * 1024 ** 2
+
     class JobStatus(Enum):
         SUCCESS = "success"
         FAILED = "failed"
@@ -75,9 +79,7 @@ class OperaRevenueApiClient:
         upload_response = self.upload_daily_data(csv_path, csv_content)
         job_id = upload_response.get("job_id")
         if not job_id:
-            raise OperaRevenueApiUploadError(
-                "Upload was not started. Verify your data and try again. Error: {}".format(upload_response)
-            )
+            raise OperaRevenueApiUploadError("Upload was not started. Error: {}".format(upload_response))
         self.log.info("Upload started with id {}".format(job_id))
         return self._wait_for_job_to_end(job_id)
 
@@ -115,7 +117,8 @@ class OperaRevenueApiClient:
         except JSONDecodeError:
             return {"error": response.content}
 
-    def _check_status_code(self, response):
+    @classmethod
+    def _check_status_code(cls, response):
         if 500 >= response.status_code > 600:
             raise requests.HTTPError(
                 "API is currently unavailable. Please try again later. Response: {}".format(response.content)
@@ -130,30 +133,34 @@ class OperaRevenueApiClient:
             raise OperaRevenueApiError('One of "csv_content" or "csv_path" must be defined')
         if csv_content is not None:
             return csv_content
-        try:
-            with open(csv_path) as f:
-                return f.read()
-        except FileNotFoundError:
+        if not os.path.isfile(csv_path):
             raise OperaRevenueApiValidationError("Could not find csv file: {}".format(csv_path))
+        file_size = os.stat(csv_path).st_size
+        if file_size > self.MAX_FILE_SIZE:
+            raise OperaRevenueApiValidationError(
+                "Selected file is too big (>{}MiB): {}".format(self.MAX_FILE_SIZE / 1024 ** 2, csv_path)
+            )
+        with open(csv_path) as f:
+            return f.read()
 
-    @timeout_decorator.timeout(seconds=60 * 60, timeout_exception=OperaRevenueApiUploadTimeExceeded)
+    @timeout_decorator.timeout(seconds=15 * 60, timeout_exception=OperaRevenueApiUploadTimeExceeded)
     def _wait_for_job_to_end(self, job_id):
-        job_status = OperaRevenueApiClient.JobStatus.RUNNING
+        job_status = OperaRevenueApiClient.JobStatus.RUNNING.value
         response = self.check_job_status(job_id)
-        while job_status == OperaRevenueApiClient.JobStatus.RUNNING:
+        while job_status == OperaRevenueApiClient.JobStatus.RUNNING.value:
             sleep(5)
             response = self.check_job_status(job_id)
             job_status = response.get("status")
         if job_status == OperaRevenueApiClient.JobStatus.SUCCESS.value:
             return response
-        else:
-            raise OperaRevenueApiUploadError("Data upload failed. API response: {}".format(response))
+        raise OperaRevenueApiUploadError("Data upload failed. API response: {}".format(response))
 
 
 def opera_revenue_api_upload():
     usage_description = (
         "To upload data without checking job status (job status should be checked by separate command): "
-        "opera_revenue_api_upload --upload-only --user your_username --token your_api_token --csv-path path/to/revenue.csv\n"
+        "opera_revenue_api_upload --upload-only --user your_username "
+        "--token your_api_token --csv-path path/to/revenue.csv\n"
         "To check job status: opera_revenue_api_upload "
         "--job-status --user your_username --token your_api_token --job-id job_id_from_previous_step\n"
         "To execute upload synchronously and wait for job to finish: "
@@ -168,28 +175,20 @@ def opera_revenue_api_upload():
     parser.add_argument(
         "--upload-only",
         action="store_true",
-        help="Upload data without checking job status (job status should be checked by separate command)"
+        help="Upload data without checking job status (job status should be checked by separate command)",
     )
     parser.add_argument(
         "--job-status",
         action="store_true",
-        help="Check status of previously started upload. --job-id must also be provided."
+        help="Check status of previously started upload. --job-id must also be provided.",
     )
 
     parser.add_argument(
-        "--csv-path",
-        required=False,
-        help="Full path to CSV file. When used, --csv-content cannot be used."
+        "--csv-path", required=False, help="Full path to CSV file. When used, --csv-content cannot be used."
     )
+    parser.add_argument("--csv-content", required=False, help="CSV file content. When used, --csv-path cannot be used.")
     parser.add_argument(
-        "--csv-content",
-        required=False,
-        help="CSV file content. When used, --csv-path cannot be used."
-    )
-    parser.add_argument(
-        "--job-id",
-        required=False,
-        help="Id of previously started upload. Use only with --job-status flag."
+        "--job-id", required=False, help="Id of previously started upload. Use only with --job-status flag."
     )
 
     args = parser.parse_args()
