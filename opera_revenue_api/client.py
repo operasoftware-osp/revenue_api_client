@@ -64,7 +64,11 @@ class OperaRevenueApiClient:
         UNDEFINED = "undefined"
 
     def __init__(
-        self, user, api_token, api_version="v1", api_url="https://revenueapi.osp.opera.software",
+        self,
+        user,
+        api_token,
+        api_version="v1",
+        api_url="https://revenueapi.osp.opera.software",
     ):
         self.user = user
         self.api_token = api_token
@@ -119,11 +123,14 @@ class OperaRevenueApiClient:
 
     @classmethod
     def _check_status_code(cls, response):
-        if 500 >= response.status_code > 600:
+        if 500 <= response.status_code < 600:
             raise requests.HTTPError(
                 "API is currently unavailable. Please try again later. Response: {}".format(response.content)
             )
-        response.raise_for_status()
+        elif response.status_code != 200:
+            raise requests.HTTPError(
+                "Client error. Status: {}. API response: {}".format(response.status_code, response.text)
+            )
 
     def _get_endpoint(self, method):
         return "{}/{}/{}".format(self.api_url, self.version, method)
@@ -193,7 +200,10 @@ def opera_revenue_api_upload():
 
     args = parser.parse_args()
     client = OperaRevenueApiClient(
-        user=args.user, api_token=args.token, api_version=args.api_version, api_url=args.api_url,
+        user=args.user,
+        api_token=args.token,
+        api_version=args.api_version,
+        api_url=args.api_url,
     )
 
     if args.upload_only:
