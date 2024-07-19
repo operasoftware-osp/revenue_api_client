@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "opera_revenue_api"
+version = "1.2.0"
+description = "Client for Opera Revenue API"
+authors = ["OSP team <statisticsdev@opera.com>"]
+license = "Proprietary"
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+timeout_decorator = "^0.4.1"
+requests = "^2.24.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+
+[tool.pyright]
+exclude = ["**/.eggs", "**/__pycache__", ".git", ".direnv", "**/.tox"]
