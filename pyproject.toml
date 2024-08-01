@@ -10,6 +10,11 @@ python = ">=3.10"
 timeout_decorator = "^0.4.1"
 requests = "^2.24.0"
 
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+black = "^23.3.0"
+pytest-mock = "^3.14.0"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
@@ -20,3 +25,7 @@ target-version = ['py310']
 
 [tool.pyright]
 exclude = ["**/.eggs", "**/__pycache__", ".git", ".direnv", "**/.tox"]
+
+[tool.poetry.scripts]
+opera_revenue_api_fetch = "opera_revenue_api.fetch:opera_revenue_api_fetch"
+opera_revenue_api_upload = "opera_revenue_api.upload:opera_revenue_api_upload"
